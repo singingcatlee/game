@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>人物適配戀愛模擬器 - 雲端版</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @keyframes heartBeat {
+      0% { transform: scale(1); }
+      14% { transform: scale(1.12); }
+      28% { transform: scale(1); }
+      42% { transform: scale(1.12); }
+      70% { transform: scale(1); }
+    }
+    .animate-heart-beat { animation: heartBeat 1.5s infinite; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: rgba(243, 244, 246, 0.5); border-radius: 99px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(244, 114, 182, 0.4); border-radius: 99px; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50 font-sans text-gray-800 p-4 md:p-8">
+
+  <div class="max-w-5xl mx-auto">
+    <!-- 雲端狀態 -->
+    <div class="mb-6 bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-md border border-white flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <span class="flex h-3 w-3 relative">
+          <span id="status-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+          <span id="status-dot" class="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+        </span>
+        <p class="text-sm font-semibold text-gray-600">
+          雲端同步狀態：<span id="connection-status" class="text-blue-600 font-bold">正在連接雲端...</span>
+        </p>
+      </div>
+    </div>
+
+    <header class="mb-8 text-center space-y-3">
+      <h1 class="text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600">
+        人物適配戀愛模擬器 (Cloud Only)
+      </h1>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <!-- 左側：角色建立 -->
+      <div class="lg:col-span-5 space-y-6">
+        <div class="bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-xl border border-white">
+          <h2 class="text-xl font-bold mb-4 flex items-center">
+            <i class="fa-solid fa-user-plus mr-2 text-pink-500"></i>創造新角色
+          </h2>
+          <div class="space-y-4">
+            <input type="text" id="char-name" placeholder="角色名字" class="w-full px-4 py-3 rounded-2xl border border-gray-200">
+            <div class="flex space-x-6 px-2">
+              <label><input type="radio" name="char-gender" value="男" checked> 男生</label>
+              <label><input type="radio" name="char-gender" value="女"> 女生</label>
+            </div>
+            <div class="flex space-x-2">
+              <input type="text" id="trait-input" placeholder="個性特質" class="flex-1 px-4 py-3 rounded-2xl border border-gray-200" onkeydown="if(event.key === 'Enter') addTraitFromInput()">
+              <button onclick="addTraitFromInput()" class="px-5 py-3 bg-pink-100 text-pink-600 rounded-2xl">新增</button>
+            </div>
+            <div id="temp-traits-container" class="flex flex-wrap gap-2"></div>
+            <button id="btn-save-char" onclick="saveCharacter()" class="w-full py-3 bg-gradient-to-r from-pink-500 to-purple-500 text-white font-bold rounded-2xl">加入角色池</button>
+          </div>
+        </div>
+
+        <div class="bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-xl border border-white">
+          <h2 class="text-xl font-bold mb-4 flex items-center justify-between">
+            <span>當前角色池</span>
+            <span id="char-count" class="text-sm bg-purple-100 px-3 py-1 rounded-full">0</span>
+          </h2>
+          <div id="characters-list" class="space-y-3 max-h-[350px] overflow-y-auto custom-scrollbar"></div>
+        </div>
+      </div>
+
+      <!-- 右側：適配分析 -->
+      <div class="lg:col-span-7 space-y-6">
+        <div class="bg-white/90 backdrop-blur-md p-8 rounded-3xl shadow-2xl border border-white/50">
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
+            <select id="select-char-1" class="w-full px-4 py-3 rounded-2xl border-2 border-pink-200"><option value="">選擇角色 A</option></select>
+            <i class="fa-solid fa-heart text-pink-400 text-3xl"></i>
+            <select id="select-char-2" class="w-full px-4 py-3 rounded-2xl border-2 border-purple-200"><option value="">選擇角色 B</option></select>
+          </div>
+          <button id="btn-calculate" onclick="startMatchmaking()" class="w-full py-4 bg-gradient-to-r from-pink-500 to-indigo-500 text-white font-bold rounded-2xl shadow-xl">開始計算適配度</button>
+        </div>
+
+        <div id="result-card" class="hidden bg-white p-8 rounded-3xl shadow-2xl border-2 border-pink-100">
+          <div class="text-center mb-6">
+            <h3 class="text-lg font-bold text-gray-500 mb-2">最終契合指數</h3>
+            <div class="flex items-center justify-center space-x-1">
+              <span id="result-score" class="text-7xl font-black text-pink-500">0</span>
+              <span class="text-4xl font-bold text-pink-500">%</span>
+            </div>
+            <div class="w-full max-w-md mx-auto mt-6 bg-gray-100 rounded-full h-4 overflow-hidden"><div id="result-progress" class="h-full bg-gradient-to-r from-pink-400 to-purple-500 rounded-full transition-all duration-1000" style="width: 0%"></div></div>
+          </div>
+          <p id="result-reason" class="text-gray-700 leading-relaxed text-justify"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBMRFqo_sYzCUmhT8BAY_MBLbEVjclVWIo",
+      authDomain: "love-simulator.firebaseapp.com",
+      projectId: "love-simulator",
+      storageBucket: "love-simulator.firebasestorage.app",
+      messagingSenderId: "926385227321",
+      appId: "1:926385227321:web:8ecf39695aa3c73f376fe8"
+    };
+
+    let db, auth, currentUser;
+    window.characters = [];
+    window.currentTraits = [];
+
+    // 初始化 Firebase (強制雲端，失敗則顯示錯誤)
+    async function initFirebaseSync() {
+      try {
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+        const userCredential = await signInAnonymously(auth);
+        currentUser = userCredential.user;
+
+        document.getElementById('connection-status').innerHTML = `<span class="text-green-600">已連接雲端資料庫 🟢</span>`;
+        
+        const charsRef = collection(db, 'artifacts', 'global-love-sim-hall', 'public', 'data', 'characters');
+        onSnapshot(charsRef, (snapshot) => {
+          window.characters = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          renderUI();
+        });
+      } catch (err) {
+        alert("雲端連線失敗，請檢查網路狀態並重新整理頁面。");
+      }
+    }
+
+    // 更新介面
+    function renderUI() {
+      const listContainer = document.getElementById('characters-list');
+      document.getElementById('char-count').textContent = window.characters.length;
+      
+      listContainer.innerHTML = window.characters.map(char => `
+        <div class="p-3 bg-white/60 rounded-xl border border-gray-100 flex justify-between items-center">
+          <span class="font-bold">${char.name}</span>
+          <button onclick="deleteCharacter('${char.id}')" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      `).join('');
+
+      const options = `<option value="">選擇角色...</option>` + window.characters.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      document.getElementById('select-char-1').innerHTML = options;
+      document.getElementById('select-char-2').innerHTML = options;
+    }
+
+    // 寫入角色 (雲端唯一)
+    async function saveCharacter() {
+      const name = document.getElementById('char-name').value.trim();
+      if (!name) return alert("請輸入名字");
+      
+      try {
+        const charsRef = collection(db, 'artifacts', 'global-love-sim-hall', 'public', 'data', 'characters');
+        await addDoc(charsRef, {
+          name,
+          gender: document.querySelector('input[name="char-gender"]:checked').value,
+          traits: window.currentTraits,
+          createdAt: serverTimestamp()
+        });
+        document.getElementById('char-name').value = '';
+        window.currentTraits = [];
+        document.getElementById('temp-traits-container').innerHTML = '';
+      } catch (e) {
+        alert("儲存失敗，請重試。");
+      }
+    }
+
+    // 刪除角色 (雲端唯一)
+    window.deleteCharacter = async (id) => {
+      try {
+        await deleteDoc(doc(db, 'artifacts', 'global-love-sim-hall', 'public', 'data', 'characters', id));
+      } catch (e) {
+        alert("刪除失敗");
+      }
+    };
+
+    // AI 計算邏輯
+    window.startMatchmaking = async () => {
+      const charId1 = document.getElementById('select-char-1').value;
+      const charId2 = document.getElementById('select-char-2').value;
+      if (!charId1 || !charId2) return alert("請選擇兩位角色");
+
+      const btn = document.getElementById('btn-calculate');
+      btn.disabled = true;
+      btn.textContent = "演算中...";
+
+      try {
+        const c1 = window.characters.find(c => c.id === charId1);
+        const c2 = window.characters.find(c => c.id === charId2);
+        
+        const response = await fetch('https://backend-x8lc.onrender.com/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: `分析 ${c1.name} 與 ${c2.name} 的戀愛適配度。` })
+        });
+        
+        const data = await response.json();
+        const res = JSON.parse(data.text.match(/\{[\s\S]*\}/)[0]);
+        
+        document.getElementById('result-card').classList.remove('hidden');
+        document.getElementById('result-score').textContent = res.score;
+        document.getElementById('result-reason').textContent = res.reason;
+        document.getElementById('result-progress').style.width = `${res.score}%`;
+      } catch (e) {
+        alert("AI 服務暫時無法取得，請稍後再試。");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "開始計算適配度";
+      }
+    };
+
+    window.addTraitFromInput = () => {
+      const val = document.getElementById('trait-input').value.trim();
+      if (!val) return;
+      window.currentTraits.push(val);
+      document.getElementById('trait-input').value = '';
+      document.getElementById('temp-traits-container').innerHTML += `<span class="px-2 bg-pink-100 rounded-full">${val}</span>`;
+    };
+
+    initFirebaseSync();
+  </script>
+</body>
+</html>
